@@ -29,12 +29,11 @@
 
 <body>
   <div id="app"></div>
-
   <script src="https://unpkg.com/react@17/umd/react.development.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js" crossorigin></script>
   <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
-
   <script type="text/babel">
+
     const jsonLocalStorage = {
       setItem: (key, value) => {
         localStorage.setItem(key, JSON.stringify(value));
@@ -43,6 +42,14 @@
         return JSON.parse(localStorage.getItem(key));
       },
     };
+
+    const fetchCat = async (text) => {
+      const OPEN_API_DOMAIN = "https://cataas.com";
+      const response = await fetch(`${OPEN_API_DOMAIN}/cat/says/${text}?json=true`);
+      const responseJson = await response.json();
+      return `${OPEN_API_DOMAIN}/${responseJson.url}`;
+    };
+
 
     // {{}} <- object , value 는 ""안에 기입
     function CatItem(props) {
@@ -54,6 +61,11 @@
     }
 
     function Favorites({ favorites }) {
+      if (favorites.length === 0) {
+        return <div>사진 위 하트를 눌러 고양이 사진을 저장해봐요!</div>;
+      }
+
+
       return (
         <ul className="favorites">
           {favorites.map((cat) =>
@@ -66,19 +78,17 @@
 
 
     //  (props)=>{} ➡️ ES6+ 디스트럭처링 문법 적용 후 ➡️ ({img})=>{}
-    const MainCard = ({ img, onHaertClick }) => {
+    const MainCard = ({ img, onHaertClick, alreadyFav }) => {
       //console.log(props.img);
 
-
+      const haertIcon = alreadyFav ? "💗" : "🤍";
       return (
         <div className="main-card">
           <img src={img} alt="고양이" width="400" />
-          <button onClick={onHaertClick}>🤍</button>
+          <button onClick={onHaertClick}>{haertIcon}</button>
         </div>
       );
     }
-
-
 
     const Title = (props) => {
       //console.log(props);
@@ -119,7 +129,7 @@
           return;
         }
 
-        updateMainCat();
+        updateMainCat(value);
 
       }
 
@@ -139,29 +149,41 @@
 
 
     const App = () => {
-
       const CAT1 = "https://cataas.com/cat/60b73094e04e18001194a309/says/react";
       const CAT2 = "https://cataas.com//cat/5e9970351b7a400011744233/says/inflearn";
       const CAT3 = "https://cataas.com/cat/595f280b557291a9750ebf65/says/JavaScript";
 
-      const [counter, setCounter] = React.useState(
-        jsonLocalStorage.getItem('counter')
-      );
+      const [counter, setCounter] = React.useState(() => {
+        return jsonLocalStorage.getItem('counter');
+      });
       const [originPic, setPic] = React.useState(CAT1);
-      const [favorites, setFavorites] = React.useState(
-        jsonLocalStorage.getItem('favorites') || []
-      );
+      const [favorites, setFavorites] = React.useState(() => {
+        return jsonLocalStorage.getItem('favorites') || [];
+      });
 
-      console.log(counter);
+      const alreadyFav = favorites.includes(originPic);
 
-      function updateMainCat() {
-        setPic(CAT2);
-        const nextCounter = counter + 1;
-        setCounter(nextCounter);
-        jsonLocalStorage.setItem('counter', nextCounter);
+      // 첫 화면에 api 사진짤 뿌리기
+      async function setInitialCat() {
+        const newCat = await fetchCat('First cat');
+        setPic(newCat);
       }
 
+      React.useEffect(() => {
+        setInitialCat();
+      }, []);
 
+
+
+      async function updateMainCat(value) {
+        const newCat = await fetchCat(value);
+        setPic(newCat);
+        setCounter((prev) => {
+          const nextCounter = prev + 1;
+          jsonLocalStorage.setItem('counter', nextCounter);
+          return nextCounter;
+        });
+      }
 
       function handleHaertClick() {
         const nextFavorites = [...favorites, originPic];
@@ -169,13 +191,24 @@
         jsonLocalStorage.setItem('favorites', nextFavorites);
       }
 
+
+      // 작성법 1
+      // let countTitle = counter + "번째";
+      // if (counter == null) {
+      //   countTitle = "";
+      // }
+
+
+      // 작성법2
+      const countTitle = counter == null ? "" : counter + "번째";
+
       // 부모에서 자식으로 props(함수) 넘기기
       // <Form handleFormSubmit={handleFormSubmit} /> 
       return (
         <div>
-          <Title>{counter}번째 고양이 가라사대</Title>
+          <Title>{countTitle} 고양이 가라사대</Title>
           <Form updateMainCat={updateMainCat} />
-          <MainCard img={originPic} onHaertClick={handleHaertClick} />
+          <MainCard img={originPic} onHaertClick={handleHaertClick} alreadyFav={alreadyFav} />
           <Favorites favorites={favorites} />
         </div>
       );

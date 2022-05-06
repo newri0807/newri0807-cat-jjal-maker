@@ -1,0 +1,180 @@
+import React from "react";
+import './App.css';
+import Title from './components/Title';
+
+const jsonLocalStorage = {
+  setItem: (key, value) => {
+    localStorage.setItem(key, JSON.stringify(value));
+  },
+  getItem: (key) => {
+    return JSON.parse(localStorage.getItem(key));
+  },
+};
+
+const fetchCat = async (text) => {
+  const OPEN_API_DOMAIN = "https://cataas.com";
+  const response = await fetch(`${OPEN_API_DOMAIN}/cat/says/${text}?json=true`);
+  const responseJson = await response.json();
+  return `${OPEN_API_DOMAIN}/${responseJson.url}`;
+};
+
+
+// {{}} <- object , value 는 ""안에 기입
+function CatItem(props) {
+  return (
+    <li>
+      <img src={props.img} style={{ width: "150px" }} />
+    </li>
+  );
+}
+
+function Favorites({ favorites }) {
+  if (favorites.length === 0) {
+    return <div>사진 위 하트를 눌러 고양이 사진을 저장해봐요!</div>;
+  }
+
+
+  return (
+    <ul className="favorites">
+      {favorites.map((cat) =>
+        <CatItem img={cat} key={cat} />
+      )}
+
+    </ul>
+  );
+}
+
+
+//  (props)=>{} ➡️ ES6+ 디스트럭처링 문법 적용 후 ➡️ ({img})=>{}
+const MainCard = ({ img, onHaertClick, alreadyFav }) => {
+  //console.log(props.img);
+
+  const haertIcon = alreadyFav ? "💗" : "🤍";
+  return (
+    <div className="main-card">
+      <img src={img} alt="고양이" width="400" />
+      <button onClick={onHaertClick}>{haertIcon}</button>
+    </div>
+  );
+}
+
+
+
+const Form = ({ updateMainCat }) => {
+  // 작성법 1
+  // const counterState = React.useState(1); // 기본값 설정
+  // const counter = counterState[0]; //고정값
+  // const setCounter = counterState[1]; // 변경할수 있는 값
+
+  const includesHangul = (text) => /[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/i.test(text);
+  const [value, setValue] = React.useState('');
+  const [errorMessage, setErrorMessage] = React.useState('');
+
+  function handleInputChange(e) {
+    //console.log(e.target.value.toUpperCase());
+
+    const userValue = e.target.value;
+    setErrorMessage("");
+    if (includesHangul(userValue)) {
+      setErrorMessage("한글은 입력할 수 없습니다.");
+    }
+    setValue(userValue.toUpperCase());
+  }
+
+
+  function handleFormSubmit(e) {
+    e.preventDefault();
+    setErrorMessage("");
+
+    if (value === "") {
+      setErrorMessage("빈 값으로 만들 수 없습니다.");
+      return;
+    }
+
+    updateMainCat(value);
+
+  }
+
+  return (
+    <form onSubmit={handleFormSubmit}>
+      <input type="text" name="name"
+        placeholder="영어 대사를 입력해주세요"
+        onChange={handleInputChange}
+        value={value}
+      />
+      <button type="submit">생성</button>
+      <p style={{ color: "red" }}>{errorMessage}</p>
+    </form>
+  );
+}
+
+
+
+const App = () => {
+  const CAT1 = "https://cataas.com/cat/60b73094e04e18001194a309/says/react";
+  const CAT2 = "https://cataas.com//cat/5e9970351b7a400011744233/says/inflearn";
+  const CAT3 = "https://cataas.com/cat/595f280b557291a9750ebf65/says/JavaScript";
+
+  const [counter, setCounter] = React.useState(() => {
+    return jsonLocalStorage.getItem('counter');
+  });
+  const [originPic, setPic] = React.useState(CAT1);
+  const [favorites, setFavorites] = React.useState(() => {
+    return jsonLocalStorage.getItem('favorites') || [];
+  });
+
+  const alreadyFav = favorites.includes(originPic);
+
+  // 첫 화면에 api 사진짤 뿌리기
+  async function setInitialCat() {
+    const newCat = await fetchCat('First cat');
+    setPic(newCat);
+  }
+
+  React.useEffect(() => {
+    setInitialCat();
+  }, []);
+
+
+
+  async function updateMainCat(value) {
+    const newCat = await fetchCat(value);
+    setPic(newCat);
+    setCounter((prev) => {
+      const nextCounter = prev + 1;
+      jsonLocalStorage.setItem('counter', nextCounter);
+      return nextCounter;
+    });
+  }
+
+  function handleHaertClick() {
+    const nextFavorites = [...favorites, originPic];
+    setFavorites(nextFavorites);
+    jsonLocalStorage.setItem('favorites', nextFavorites);
+  }
+
+
+  // 작성법 1
+  // let countTitle = counter + "번째";
+  // if (counter == null) {
+  //   countTitle = "";
+  // }
+
+
+  // 작성법2
+  const countTitle = counter == null ? "" : counter + "번째";
+
+  // 부모에서 자식으로 props(함수) 넘기기
+  // <Form handleFormSubmit={handleFormSubmit} /> 
+  return (
+    <div>
+      <Title>{countTitle} 고양이 가라사대</Title>
+      <Form updateMainCat={updateMainCat} />
+      <MainCard img={originPic} onHaertClick={handleHaertClick} alreadyFav={alreadyFav} />
+      <Favorites favorites={favorites} />
+    </div>
+  );
+
+}
+
+export default App;
